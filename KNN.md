@@ -82,24 +82,72 @@ print("Predicted class for new point:", knn.predict(new_point)[0])
 
 ### Finding the Best K (Elbow Method)
 
+The elbow method tests a range of K values and plots how error changes, so you can pick K empirically instead of guessing.
+
+**Why it's needed:**
+- **Too small K** (e.g., K=1) → overfits, very sensitive to noise
+- **Too large K** → underfits, oversmoothed decision boundary
+- The elbow method finds the middle ground.
+
+**How it works:**
+1. Loop through a range of K values (e.g., 1 to 30).
+2. For each K, train a KNN model and calculate the **error rate** on the test/validation set.
+3. Plot **K vs Error Rate**.
+4. Look for the **"elbow point"** — where error stops dropping sharply and flattens out. That K is usually the best choice.
+
+Think of it like a cost-benefit curve: error drops fast initially as K increases (less noise sensitivity), but after a point, increasing K further gives diminishing returns or starts hurting performance — that bend is the "elbow."
+
 ```python
+import numpy as np
 import matplotlib.pyplot as plt
 
 error_rates = []
+k_range = range(1, 30)
 
-for k in range(1, 15):
+for k in k_range:
     model = KNeighborsClassifier(n_neighbors=k)
     model.fit(X_train_scaled, y_train)
     pred = model.predict(X_test_scaled)
-    error_rates.append(1 - accuracy_score(y_test, pred))
+    error = 1 - accuracy_score(y_test, pred)
+    error_rates.append(error)
 
-plt.plot(range(1, 15), error_rates, marker='o')
+plt.figure(figsize=(8, 5))
+plt.plot(k_range, error_rates, marker='o', linestyle='--', color='blue')
+plt.title('Elbow Method for Optimal K')
 plt.xlabel('K value')
 plt.ylabel('Error Rate')
-plt.title('Elbow Method for Optimal K')
+plt.xticks(k_range)
+plt.grid(True)
 plt.show()
+
+# Automatically pick the K with lowest error
+best_k = k_range[np.argmin(error_rates)]
+print("Best K:", best_k)
 ```
-The "elbow point" — where error stops dropping significantly — is usually a good choice for k.
+
+**Reading the plot:**
+- **Y-axis (Error Rate)** starts high at K=1 (overfitting/noisy), drops as K increases.
+- At some point, the curve **flattens out** — that's the elbow.
+- Picking K right at (or just after) the elbow gives a good bias-variance balance.
+- If multiple K values give near-identical low error, prefer the **smaller K** (simpler, faster) or an **odd K** for binary classification (avoids tie votes).
+
+**Alternative: Cross-Validation Instead of a Single Test Split**
+
+A single train-test split can give a noisy elbow curve. A more robust approach averages results across multiple folds:
+
+```python
+from sklearn.model_selection import cross_val_score
+
+cv_scores = []
+for k in k_range:
+    model = KNeighborsClassifier(n_neighbors=k)
+    scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring='accuracy')
+    cv_scores.append(1 - scores.mean())  # error = 1 - accuracy
+
+best_k_cv = k_range[np.argmin(cv_scores)]
+print("Best K (cross-validated):", best_k_cv)
+```
+This averages results across 5 folds, giving a more stable estimate of the true elbow point — less prone to a single lucky/unlucky train-test split.
 
 ## KNN for Regression
 
